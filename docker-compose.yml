@@ -1,0 +1,35 @@
+# docker-compose.yml
+version: "3.8"
+
+services:
+  db:
+    image: postgres:latest # Using a lightweight PostgreSQL image
+    container_name: portfolio_tracker_db
+    environment:
+      POSTGRES_DB: portfolio_tracker_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432" # Map container port 5432 to host port 5432
+    volumes:
+      - db_data:/data # Persistent data volume
+
+    networks:
+      - investment_portfolio_backend_network
+
+  redis:
+    image: redis:latest # Using a lightweight Redis image
+    container_name: portfolio_tracker_redis
+    ports:
+      - "6379:6379" # Map container port 6379 to host port 6379
+    volumes:
+      - redis_data:/data # Persistent data volume
+    networks:
+      - investment_portfolio_backend_network
+
+volumes:
+  db_data: # Define the named volume for PostgreSQL data
+  redis_data: # Define the named volume for Redis data
+
+networks:
+  investment_portfolio_backend_network:
