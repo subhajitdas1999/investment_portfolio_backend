@@ -1,60 +1,73 @@
+import sys
 import os
-from flask import Flask, jsonify
-from sqlalchemy import create_engine, text
-import redis
+from sqlalchemy import text
+import app.__init__ as app_init
+from app.__init__ import init_db_and_redis, get_db_session, get_redis_client, db_engine, Base,Colors, print_colored,create_app
 
-app = Flask(__name__)
 
-# --- Database (PostgreSQL) Configuration ---
-# Get DB connection string from environment variable.
-# When running Python app on host, 'localhost' refers to the host machine,
-# where Docker maps the container ports.
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/portfolio_tracker_db")
-engine = create_engine(DATABASE_URL)
 
-# --- Redis Configuration ---
-# Get Redis host and port from environment variables.
-# When running Python app on host, 'localhost' refers to the host machine,
-# where Docker maps the container ports.
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-redis_client = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
-
-@app.route('/')
-def hello_world():
-    return jsonify(message="Welcome to the Investment Portfolio Tracker Backend!")
-
-@app.route('/db_test')
-def db_test():
-    """
-    Endpoint to test PostgreSQL connection and perform a simple query.
-    """
+def test_db_connection():
+    """Tests the PostgreSQL database connection."""
+    session = None
     try:
-        with engine.connect() as connection:
-            result = connection.execute(text("SELECT 1")).scalar()
-            if result == 1:
-                return jsonify(message="Successfully connected to PostgreSQL!", db_status="OK")
-            else:
-                return jsonify(message="PostgreSQL connection failed unexpectedly.", db_status="ERROR"), 500
-    except Exception as e:
-        return jsonify(message=f"Error connecting to PostgreSQL: {str(e)}", db_status="ERROR"), 500
-
-@app.route('/redis_test')
-def redis_test():
-    """
-    Endpoint to test Redis connection and perform a simple set/get operation.
-    """
-    try:
-        redis_client.set("test_key", "test_value")
-        value = redis_client.get("test_key")
-        if value == "test_value":
-            return jsonify(message="Successfully connected to Redis!", redis_status="OK", retrieved_value=value)
+        session = get_db_session()
+        # Execute a simple query to check the connection
+        result = session.execute(text("SELECT 1")).scalar()
+        if result == 1:
+            print_colored("[DB TEST] Successfully connected to PostgreSQL!", Colors.GREEN)
+            return True
         else:
-            return jsonify(message="Redis connection failed unexpectedly.", redis_status="ERROR"), 500
+            print_colored("[DB TEST] PostgreSQL connection failed unexpectedly.", Colors.RED)
+            return False
     except Exception as e:
-        return jsonify(message=f"Error connecting to Redis: {str(e)}", redis_status="ERROR"), 500
+        print_colored(f"[DB TEST] Error connecting to PostgreSQL: {e}", Colors.RED)
+        return False
+    finally:
+        if session:
+            session.close()
+
+def test_redis_connection():
+    """Tests the Redis connection."""
+    redis_client = None
+    try:
+        redis_client = get_redis_client()
+        # Perform a simple PING command
+        response = redis_client.ping()
+        if response:
+            print_colored("[REDIS TEST] Successfully connected to Redis!", Colors.GREEN)
+            redis_client.set("test_key_ping", "hello_redis")
+            value = redis_client.get("test_key_ping")
+            print_colored(f"[REDIS TEST] Set 'test_key_ping' and got value: {value}", Colors.YELLOW)
+            return True
+        else:
+            print_colored("[REDIS TEST] Redis connection failed unexpectedly (PING failed).", Colors.RED)
+            return False
+    except Exception as e:
+        print_colored(f"[REDIS TEST] Error connecting to Redis: {e}", Colors.RED)
+        return False
+
+
+
+    
+# Create the Flask app instance
+app = create_app()
 
 if __name__ == '__main__':
-    # When running the Python application directly on the host,
-    # it will connect to Docker containers via localhost and the exposed ports.
+    # This block is primarily for local development.
+    # In a production environment, you would typically use a WSGI server like Gunicorn.
+
+    # Optional: Create tables on startup for development convenience.
+    # In a real application, use migration tools like Alembic.
+    print_colored("Attempting to create database tables if they don't exist...")
+    try:
+        # Import models here to ensure they are registered with Base.metadata
+        # This is crucial for Base.metadata.create_all to know about your tables.
+        # print_colored(app_init.db_engine, Colors.YELLOW)
+        from app.models import User
+        Base.metadata.create_all(app_init.db_engine)
+        print_colored("Database tables ensured (created if not existing).")
+    except Exception as e:
+        print_colored(f"Error during initial table creation: {e}", Colors.RED)
+        print_colored("Please ensure your PostgreSQL container is running and accessible.", Colors.RED)
+
     app.run(host='0.0.0.0', port=8000, debug=True)
