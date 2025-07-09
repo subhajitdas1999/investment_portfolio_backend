@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.sql import func
-# Base is imported from the top-level app.__init__
-from app.__init__ import Base
+# NEW: Import Base from app.extensions
+from app.extensions import Base
 
 class User(Base):
     """

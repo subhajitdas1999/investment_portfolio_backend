@@ -1,10 +1,11 @@
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
 from sqlalchemy import text
-from app.__init__ import get_db_session, get_redis_client, db_engine, Base, print_colored, Colors
+# Import necessary items from extensions.py
+from app.extensions import get_db_session, get_redis_client, db_engine, Base
+from app.utils.logging import print_colored, Colors# Keep Colors for logging
 
-# Define a Blueprint for general system routes
-# This blueprint will be registered directly under /api/v1/
-system_bp = Blueprint('system_bp', __name__)
+# Import the blueprint object defined in this package's __init__.py
+from . import system_bp
 
 @system_bp.route('/')
 def hello_world():

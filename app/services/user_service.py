@@ -1,7 +1,8 @@
-from sqlalchemy.orm.session import Session as DBSessionType # Alias for clarity
+from sqlalchemy.orm.session import Session as DBSessionType
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
-from app.models.user_model import User # NEW: Import User from its new modular location
+# NEW: Import User from its modular location
+from app.models.user_model import User
 from app.__init__ import print_colored, Colors
 
 class UserService:

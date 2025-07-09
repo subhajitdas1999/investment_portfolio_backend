@@ -1,39 +1,37 @@
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import SQLAlchemyError
-from app.__init__ import get_db_session, print_colored, Colors
-from app.services.user_service import UserService # Import the UserService
-from app.models.user_model import User # NEW: Import User from its new modular location
+from app.extensions import get_db_session # Import get_db_session from extensions
+from app.__init__ import print_colored, Colors
+from app.services.user_service import UserService
+from app.models.user_model import User # Ensure correct model import path
 
-# Create a Blueprint for user routes, WITHOUT a URL prefix here.
-# The prefix will be applied when it's registered in app/routes.py
-user_bp = Blueprint('user_bp', __name__)
+# Import the blueprint object defined in this package's __init__.py
+from . import users_bp
 
-@user_bp.route('/', methods=['POST'])
+@users_bp.route('/', methods=['POST'])
 def create_user():
     """
     Endpoint to create a new user (registration).
     Expects JSON: {"username": "...", "email": "...", "password_hash": "..."}
     """
     session = get_db_session()
-    user_service = UserService(session) # Instantiate the service with the session
+    user_service = UserService(session)
     try:
         data = request.get_json()
         username = data.get('username')
         email = data.get('email')
         password_hash = data.get('password_hash')
 
-        # Input validation (can be more robust with libraries like Marshmallow/Pydantic)
         if not all([username, email, password_hash]):
             print_colored("Route: Missing required user fields for creation.", color=Colors.YELLOW)
             return jsonify(message="Missing required fields: username, email, password_hash."), 400
 
-        # Call the service layer to handle the business logic
         new_user = user_service.create_user(username, email, password_hash)
 
         return jsonify(message="User created successfully!", user_id=new_user.id), 201
     except ValueError as ve:
-        session.rollback() # Rollback if service logic indicated an issue (e.g., duplicate user)
+        session.rollback()
         print_colored(f"Route: Validation error creating user: {ve}", color=Colors.YELLOW)
         return jsonify(message=str(ve)), 400
     except SQLAlchemyError as e:
@@ -47,15 +45,14 @@ def create_user():
     finally:
         session.close()
 
-@user_bp.route('/<int:user_id>', methods=['GET'])
+@users_bp.route('/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     """
     Endpoint to retrieve a user by their ID.
     """
     session = get_db_session()
-    user_service = UserService(session) # Instantiate the service with the session
+    user_service = UserService(session)
     try:
-        # Call the service layer to handle the business logic
         user = user_service.get_user_by_id(user_id)
 
         return jsonify(
